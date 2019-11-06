@@ -34,6 +34,15 @@ public section.
   types:
     tt_sheet type standard table of ts_sheet with key name .
 
+  class-methods create
+    importing
+      !iv_xdata type xstring
+    returning
+      value(ro_instance) type ref to zcl_xlsxreader
+    raising
+      cx_openxml_format
+      cx_openxml_not_found.
+
   methods get_sheet
     importing
       !iv_name type string
@@ -45,9 +54,10 @@ public section.
 
   methods constructor
     importing
-      !iv_file type xstring
+      iv_xdata type xstring
     raising
-      cx_openxml_format cx_openxml_not_found.
+      cx_openxml_format
+      cx_openxml_not_found.
 
   methods get_sheet_names
     returning
@@ -109,7 +119,7 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
 
   method constructor.
-    m_xlsx = cl_xlsx_document=>load_document( iv_file ).
+    m_xlsx = cl_xlsx_document=>load_document( iv_xdata ).
     m_workbook = m_xlsx->get_workbookpart( ).
   endmethod.
 
@@ -120,6 +130,15 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     check iv_days co '0123456789'.
     lv_days = iv_days.
     rv_date = c_excldt + lv_days.
+  endmethod.
+
+
+  method create.
+
+    create object ro_instance
+      exporting
+        iv_xdata = iv_xdata.
+
   endmethod.
 
 

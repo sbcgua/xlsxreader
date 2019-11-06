@@ -15,13 +15,16 @@ class lcl_app implementation.
 
   method run.
 
-    data(data) = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
+    data xdata type xstring.
+    data xl type ref to zcl_xlsxreader.
+    data sheets type string_table.
+    data tab type zcl_xlsxreader=>tt_table.
 
-    data(xl) = new zcl_xlsxreader( data ).
+    xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
+    xl     = zcl_xlsxreader=>create( xdata ).
+    sheets = xl->get_sheet_names( ).
 
-    data(sheets) = xl->get_sheet_names( ).
-
-    data(tab) = xl->get_sheet( '_contents' ).
+    tab = xl->get_sheet( '_contents' ).
     tab = xl->get_sheet( 'TESTCASES' ).
     tab = xl->get_sheet( 'SFLIGHT' ).
     tab = xl->get_sheet( 'COMPLEX' ).
