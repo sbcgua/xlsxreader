@@ -5,62 +5,102 @@ class ZCL_XLSXREADER definition
 public section.
 
   types:
-    BEGIN OF ts_table,
-        col   TYPE c LENGTH 3,
-        row   TYPE i,
-        type  TYPE c LENGTH 1,
-        value TYPE string,
-      END OF ts_table .
-  types:
-    BEGIN OF ts_sheet,
-        name  TYPE string,
-        id    TYPE string,
-      END OF ts_sheet .
-  types:
-    tt_table TYPE STANDARD TABLE OF ts_table WITH KEY COL ROW .
-  types:
-    tt_sheet TYPE STANDARD TABLE OF ts_sheet WITH KEY NAME .
+    begin of ty_raw_cell,
+      index  type i,
+      type   type c length 1,
+      cell   type string,
+      value  type string,
+      column type string,
+      row    type string,
+    end of ty_raw_cell,
+    tt_raw_cells type standard table of ty_raw_cell with default key.
 
-  methods GET_SHEET
+  types:
+    begin of ts_table,
+      col   type c length 3,
+      row   type i,
+      type  type c length 1,
+      value type string,
+    end of ts_table .
+
+  types:
+    begin of ts_sheet,
+      name  type string,
+      id    type string,
+    end of ts_sheet .
+
+  types:
+    tt_table type standard table of ts_table with key col row .
+  types:
+    tt_sheet type standard table of ts_sheet with key name .
+
+  methods get_sheet
     importing
-      !IV_NAME type STRING
+      !iv_name type string
     returning
-      value(RT_TABLE) type TT_TABLE
+      value(rt_table) type tt_table
     raising
-      CX_OPENXML_NOT_FOUND
-      CX_OPENXML_FORMAT .
-  methods CONSTRUCTOR
+      cx_openxml_not_found
+      cx_openxml_format .
+
+  methods constructor
     importing
-      !IV_FILE type XSTRING
+      !iv_file type xstring
     raising
-      CX_OPENXML_FORMAT .
-  methods GET_ITAB
-    importing
-      !IV_NAME type STRING .
-  methods GET_SHEETS
+      cx_openxml_format cx_openxml_not_found.
+
+  methods get_sheet_names
     returning
-      value(RT_SHEET) type TT_SHEET
+      value(rt_sheet_names) type string_table
     raising
-      CX_OPENXML_FORMAT .
+      cx_openxml_format .
+
 protected section.
 private section.
 
-  data M_WORKBOOK type ref to CL_XLSX_WORKBOOKPART .
-  data M_SHEETS type TT_SHEET .
-  data M_XLSX type ref to CL_XLSX_DOCUMENT .
-  constants C_NS_R type STRING value 'http://schemas.openxmlformats.org/officeDocument/2006/relationships' ##NO_TEXT.
-  constants C_EXCLDT type DATS value '19000101' ##NO_TEXT.
+  data m_workbook type ref to cl_xlsx_workbookpart .
+  data m_sheets type tt_sheet .
+  data m_xlsx type ref to cl_xlsx_document .
+  constants c_ns_r type string value 'http://schemas.openxmlformats.org/officeDocument/2006/relationships' ##NO_TEXT.
+  constants c_excldt type dats value '19000101' ##NO_TEXT.
+  data mt_shared_strings type string_table.
 
-  methods GET_XMLDOC
-    importing
-      !IV_XML type XSTRING
+  methods get_sheets
     returning
-      value(RO_XMLDOC) type ref to IF_IXML_DOCUMENT .
-  methods CONVERT_DATE
+      value(rt_sheets) type tt_sheet
+    raising
+      cx_openxml_format .
+
+  methods get_xmldoc
     importing
-      !IV_DAYS type STRING
+      !iv_xml type xstring
     returning
-      value(RV_DATE) type DATS .
+      value(ro_xmldoc) type ref to if_ixml_document .
+
+  methods convert_date
+    importing
+      !iv_days type string
+    returning
+      value(rv_date) type dats .
+
+  methods get_shared_string
+    importing
+      iv_index type i
+    returning
+      value(rv_str) type string.
+
+  methods load_shared_strings
+    raising
+      cx_openxml_format cx_openxml_not_found.
+
+  methods load_worksheet_raw
+    importing
+      iv_name type string
+    returning
+      value(rt_raw_cells) type tt_raw_cells
+    raising
+      cx_openxml_format cx_openxml_not_found.
+
 ENDCLASS.
 
 
@@ -68,163 +108,219 @@ ENDCLASS.
 CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
 
-  METHOD CONSTRUCTOR.
+  method constructor.
     m_xlsx = cl_xlsx_document=>load_document( iv_file ).
     m_workbook = m_xlsx->get_workbookpart( ).
-  ENDMETHOD.
-
-
-  METHOD CONVERT_DATE.
-    DATA lv_days TYPE i.
-
-    CHECK iv_days CO '0123456789'.
-    lv_days = iv_days.
-    rv_date = c_excldt.
-    ADD lv_days TO rv_date.
-  ENDMETHOD.
-
-
-  method GET_ITAB.
   endmethod.
 
 
-  METHOD GET_SHEET.
-    DATA: lo_worksheet TYPE REF TO cl_xlsx_worksheetpart.
-    DATA: lo_ixml_doc  TYPE REF TO if_ixml_document.
-    DATA: ls_sheet TYPE ts_sheet,
-          ls_cell  TYPE ts_table.
+  method convert_date.
+    data lv_days type i.
 
-    READ TABLE m_sheets INTO ls_sheet WITH TABLE KEY name = iv_name.
-    IF sy-subrc NE 0.
-      RAISE EXCEPTION TYPE cx_openxml_not_found.
-    ENDIF.
-    lo_worksheet ?= m_workbook->get_part_by_id( ls_sheet-id ).
-    lo_ixml_doc = get_xmldoc( lo_worksheet->get_data( ) ).
+    check iv_days co '0123456789'.
+    lv_days = iv_days.
+    rv_date = c_excldt + lv_days.
+  endmethod.
 
-    " refactoring needed
-    TYPES: BEGIN OF ls_table,
-             index  TYPE i,
-             type   TYPE c LENGTH 1,
-             cell   TYPE string,
-             value  TYPE string,
-             column TYPE string,
-             row    TYPE string,
-           END OF ls_table.
 
-    TYPES: BEGIN OF ls_string,
-             index TYPE i,
-             value TYPE string,
-           END OF ls_string.
+  method get_shared_string.
 
-    DATA: ls_string TYPE ls_string,
-          lt_string TYPE TABLE OF ls_string,
-          ls_table  TYPE ls_table,
-          lt_table  TYPE TABLE OF ls_table.
+    read table mt_shared_strings into rv_str index iv_index.
 
-    DATA(lo_ixml_root) = lo_ixml_doc->get_root_element( ).
-    DATA(lo_nodes)         = lo_ixml_root->get_elements_by_tag_name( name = 'row' ).
-    DATA(lo_node_iterator) = lo_nodes->create_iterator( ).
-    DATA(lo_node)          = lo_node_iterator->get_next( ).
-    WHILE lo_node IS NOT INITIAL.
-      CLEAR ls_table.
-      DATA(lo_att) = lo_node->get_attributes( ).
-      ls_table-row = lo_att->get_named_item( 'r' )->get_value( ).
+  endmethod.
 
-      DATA(lo_node_iterator_r) = lo_node->get_children( )->create_iterator( ).
-      DATA(lo_node_r)          = lo_node_iterator_r->get_next( ).
-      WHILE lo_node_r IS NOT INITIAL.
-        CLEAR: ls_table-cell,
-               ls_table-type,
-               ls_table-value,
-               ls_table-index.
 
-        lo_att            = lo_node_r->get_attributes( ).
-        DATA(lo_att_child)      = lo_att->get_named_item( 'r' ).
-        ls_table-cell = lo_att_child->get_value( ).
+  method get_sheet.
 
-        lo_att_child = lo_att->get_named_item( 't' ).
-        IF lo_att_child IS BOUND.
-          ls_table-type = lo_att_child->get_value( ).
-        ENDIF.
+    data lt_raw_cells type tt_raw_cells.
+    lt_raw_cells = load_worksheet_raw( iv_name ).
+    load_shared_strings( ).
 
-        IF ls_table-type IS INITIAL.
-          ls_table-value = lo_node_r->get_value( ).
-        ELSE.
-          ls_table-index = lo_node_r->get_value( ).
-        ENDIF.
-        APPEND ls_table TO lt_table.
-        lo_node_r = lo_node_iterator_r->get_next( ).
-      ENDWHILE.
+    field-symbols <c> like line of lt_raw_cells.
+    field-symbols <res> like line of rt_table.
+
+    " post process
+    loop at lt_raw_cells assigning <c>.
+      "get column
+      <c>-column = <c>-cell.
+      condense <c>-row no-gaps.
+      replace <c>-row in <c>-column with space.
+
+      if <c>-type eq 's'.
+        <c>-value = get_shared_string( <c>-index + 1 ).
+      endif.
+      condense <c>-value. " ???
+
+      append initial line to rt_table assigning <res>.
+      <res>-row   = <c>-row.
+      <res>-col   = <c>-column.
+      <res>-type  = <c>-type.
+      <res>-value = <c>-value.
+    endloop.
+
+  endmethod.
+
+
+  method get_sheets.
+
+    data ls_sheet type ts_sheet.
+    data lo_ixml_doc type ref to if_ixml_document.
+    data lo_ixml_root type ref to if_ixml_element.
+    data lo_nodes type ref to if_ixml_node_collection.
+    data lo_node_iterator type ref to if_ixml_node_iterator.
+    data lo_node type ref to if_ixml_node.
+    data lo_att type ref to if_ixml_named_node_map.
+
+    if m_sheets is initial.
+      lo_ixml_doc      = get_xmldoc( m_workbook->get_data( ) ).
+      lo_ixml_root     = lo_ixml_doc->get_root_element( ).
+      lo_nodes         = lo_ixml_root->get_elements_by_tag_name( name = 'sheet' ).
+      lo_node_iterator = lo_nodes->create_iterator( ).
       lo_node          = lo_node_iterator->get_next( ).
-    ENDWHILE.
+      while lo_node is not initial.
+        lo_att        = lo_node->get_attributes( ).
+        ls_sheet-name = lo_att->get_named_item( 'name' )->get_value( ).
+        ls_sheet-id   = lo_att->get_named_item_ns(
+          name = 'id'
+          uri  = c_ns_r )->get_value( ).
+        append ls_sheet to me->m_sheets.
+        lo_node = lo_node_iterator->get_next( ).
+      endwhile.
+    endif.
 
-    " string data
-    DATA(lo_shared_st)  = m_workbook->get_sharedstringspart( ).
-    lo_ixml_doc = get_xmldoc( lo_shared_st->get_data( ) ).
-    lo_ixml_root = lo_ixml_doc->get_root_element( ).
+    rt_sheets = m_sheets.
+
+  endmethod.
+
+
+  method get_sheet_names.
+
+    data lt_sheets like m_sheets.
+    field-symbols <s> like line of lt_sheets.
+
+    lt_sheets = get_sheets( ).
+
+    loop at lt_sheets assigning <s>.
+      append <s>-name to rt_sheet_names.
+    endloop.
+
+  endmethod.
+
+
+  method get_xmldoc.
+
+    data lo_ixml type ref to if_ixml.
+    data lo_ixml_sf type ref to if_ixml_stream_factory.
+    data lo_ixml_stream type ref to if_ixml_istream.
+    data lo_ixml_parser type ref to if_ixml_parser.
+
+    lo_ixml        = cl_ixml=>create( ).
+    lo_ixml_sf     = lo_ixml->create_stream_factory( ).
+    lo_ixml_stream = lo_ixml_sf->create_istream_xstring( iv_xml ).
+    ro_xmldoc      = lo_ixml->create_document( ).
+    lo_ixml_parser = lo_ixml->create_parser(
+      document       = ro_xmldoc
+      istream        = lo_ixml_stream
+      stream_factory = lo_ixml_sf ).
+
+    lo_ixml_parser->parse( ).
+
+  endmethod.
+
+
+  method load_shared_strings.
+
+    if lines( mt_shared_strings ) > 0.
+      return.
+    endif.
+
+    data lo_shared_st type ref to cl_xlsx_sharedstringspart.
+    data lo_ixml_doc type ref to if_ixml_document.
+    data lo_ixml_root type ref to if_ixml_element.
+    data lo_nodes type ref to if_ixml_node_collection.
+    data lo_node_iterator type ref to if_ixml_node_iterator.
+    data lo_node type ref to if_ixml_node.
+    data lv_str type string.
+
+    lo_shared_st     = m_workbook->get_sharedstringspart( ).
+    lo_ixml_doc      = get_xmldoc( lo_shared_st->get_data( ) ).
+    lo_ixml_root     = lo_ixml_doc->get_root_element( ).
     lo_nodes         = lo_ixml_root->get_elements_by_tag_name( name = 'si' ).
     lo_node_iterator = lo_nodes->create_iterator( ).
 
     lo_node = lo_node_iterator->get_next( ).
-    WHILE lo_node IS NOT INITIAL.
-      CLEAR: ls_string.
-      ls_string-index = sy-tabix.
-      ls_string-value = lo_node->get_value( ).
-      APPEND ls_string TO lt_string.
+    while lo_node is not initial.
+      lv_str = lo_node->get_value( ).
+      append lv_str to mt_shared_strings.
       lo_node = lo_node_iterator->get_next( ).
-    ENDWHILE.
+    endwhile.
 
-    LOOP AT lt_table INTO ls_table.
-      "get column
-      ls_table-column = ls_table-cell.
-      CONDENSE ls_table-row NO-GAPS.
-      REPLACE ls_table-row IN ls_table-column WITH space.
-
-      IF ls_table-type EQ 's'.
-        READ TABLE lt_string INTO ls_string
-          WITH KEY index = ls_table-index BINARY SEARCH.
-        IF sy-subrc EQ 0.
-          ls_table-value = ls_string-value.
-        ENDIF.
-      ENDIF.
-      CONDENSE ls_table-value.
-      CLEAR ls_cell.
-      ls_cell-row = ls_table-row.
-      ls_cell-col = ls_table-column.
-      ls_cell-type = ls_table-type.
-      ls_cell-value = ls_table-value.
-      APPEND ls_cell TO rt_table.
-    ENDLOOP.
-  ENDMETHOD.
+  endmethod.
 
 
-  METHOD GET_SHEETS.
-    DATA: ls_sheet TYPE ts_sheet.
+  method load_worksheet_raw.
 
-    IF m_sheets IS INITIAL.
-      DATA(lo_ixml_doc) = get_xmldoc( m_workbook->get_data( ) ).
-      DATA(lo_ixml_root)     = lo_ixml_doc->get_root_element( ).
-      DATA(lo_nodes)         = lo_ixml_root->get_elements_by_tag_name( name = 'sheet' ).
-      DATA(lo_node_iterator) = lo_nodes->create_iterator( ).
-      DATA(lo_node)          = lo_node_iterator->get_next( ).
-      WHILE lo_node IS NOT INITIAL.
-        DATA(lo_att)  = lo_node->get_attributes( ).
-        ls_sheet-name = lo_att->get_named_item( 'name' )->get_value( ).
-        ls_sheet-id   = lo_att->get_named_item_ns( name = 'id' uri = c_ns_r )->get_value( ).
-        APPEND ls_sheet TO me->m_sheets.
-        lo_node = lo_node_iterator->get_next( ).
-      ENDWHILE.
-    ENDIF.
-    rt_sheet = m_sheets.
-  ENDMETHOD.
+    data lo_worksheet type ref to cl_xlsx_worksheetpart.
+    data lo_ixml_doc  type ref to if_ixml_document.
+    data ls_sheet type ts_sheet.
+    data ls_table like line of rt_raw_cells.
 
+    read table m_sheets into ls_sheet with table key name = iv_name.
+    if sy-subrc ne 0.
+      raise exception type cx_openxml_not_found.
+    endif.
+    lo_worksheet ?= m_workbook->get_part_by_id( ls_sheet-id ).
+    lo_ixml_doc = get_xmldoc( lo_worksheet->get_data( ) ).
 
-  METHOD GET_XMLDOC.
-    DATA(lo_ixml) = cl_ixml=>create( ).
-    DATA(lo_ixml_sf) = lo_ixml->create_stream_factory( ).
-    DATA(lo_ixml_stream) = lo_ixml_sf->create_istream_xstring( iv_xml ).
-    ro_xmldoc = lo_ixml->create_document( ).
-    DATA(lo_ixml_parser) = lo_ixml->create_parser( document = ro_xmldoc  istream = lo_ixml_stream stream_factory = lo_ixml_sf ).
-    lo_ixml_parser->parse( ).
-  ENDMETHOD.
+    data lo_ixml_root type ref to if_ixml_element.
+    data lo_nodes type ref to if_ixml_node_collection.
+    data lo_node_iterator type ref to if_ixml_node_iterator.
+    data lo_node type ref to if_ixml_node.
+
+    data lo_att type ref to if_ixml_named_node_map.
+    data lo_node_iterator_r type ref to if_ixml_node_iterator.
+    data lo_node_r type ref to if_ixml_node.
+    data lo_att_child type ref to if_ixml_node.
+
+    lo_ixml_root     = lo_ixml_doc->get_root_element( ).
+    lo_nodes         = lo_ixml_root->get_elements_by_tag_name( name = 'row' ).
+    lo_node_iterator = lo_nodes->create_iterator( ).
+    lo_node          = lo_node_iterator->get_next( ).
+
+    while lo_node is not initial.
+      clear ls_table.
+      lo_att             = lo_node->get_attributes( ).
+      ls_table-row       = lo_att->get_named_item( 'r' )->get_value( ).
+      lo_node_iterator_r = lo_node->get_children( )->create_iterator( ).
+      lo_node_r          = lo_node_iterator_r->get_next( ).
+
+      while lo_node_r is not initial.
+        clear:
+          ls_table-cell,
+          ls_table-type,
+          ls_table-value,
+          ls_table-index.
+
+        lo_att        = lo_node_r->get_attributes( ).
+        lo_att_child  = lo_att->get_named_item( 'r' ).
+        ls_table-cell = lo_att_child->get_value( ).
+
+        lo_att_child = lo_att->get_named_item( 't' ).
+        if lo_att_child is bound.
+          ls_table-type = lo_att_child->get_value( ).
+        endif.
+
+        if ls_table-type is initial.
+          ls_table-value = lo_node_r->get_value( ).
+        else.
+          ls_table-index = lo_node_r->get_value( ).
+        endif.
+        append ls_table to rt_raw_cells.
+        lo_node_r = lo_node_iterator_r->get_next( ).
+      endwhile.
+
+      lo_node          = lo_node_iterator->get_next( ).
+    endwhile.
+
+  endmethod.
 ENDCLASS.
