@@ -21,7 +21,7 @@ class lcl_app implementation.
     data tab type zcl_xlsxreader=>tt_table.
 
     xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
-    xl     = zcl_xlsxreader=>create( xdata ).
+    xl     = zcl_xlsxreader=>load( xdata ).
     sheets = xl->get_sheet_names( ).
 
     tab = xl->get_sheet( '_contents' ).
