@@ -202,7 +202,7 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     data ls_sheet type ts_sheet.
     data lo_node_iterator type ref to if_ixml_node_iterator.
     data lo_node type ref to if_ixml_node.
-    data lo_att type ref to if_ixml_named_node_map.
+    data lo_attrs type ref to if_ixml_named_node_map.
 
     if m_sheets is initial.
       lo_node_iterator = get_iterator_of(
@@ -211,9 +211,9 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
       lo_node = lo_node_iterator->get_next( ).
 
       while lo_node is bound.
-        lo_att        = lo_node->get_attributes( ).
-        ls_sheet-name = lo_att->get_named_item( 'name' )->get_value( ).
-        ls_sheet-id   = lo_att->get_named_item_ns(
+        lo_attrs      = lo_node->get_attributes( ).
+        ls_sheet-name = lo_attrs->get_named_item( 'name' )->get_value( ).
+        ls_sheet-id   = lo_attrs->get_named_item_ns(
           name = 'id'
           uri  = c_ns_r )->get_value( ).
         append ls_sheet to me->m_sheets.
