@@ -134,9 +134,8 @@ private section.
     changing
       ct_raw_cells type tt_raw_cells.
 
-  methods get_default_num_formats
-    returning
-      value(rt_num_formats) type zcl_xlsxreader_proc_num_fmts=>tt_num_formats.
+  methods add_default_num_formats
+    changing ct_num_formats type zcl_xlsxreader_proc_num_fmts=>ts_num_formats.
 
 ENDCLASS.
 
@@ -145,29 +144,14 @@ ENDCLASS.
 CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
 
-  method constructor.
-    m_xlsx = cl_xlsx_document=>load_document( iv_xdata ).
-    m_workbook = m_xlsx->get_workbookpart( ).
-  endmethod.
+  method add_default_num_formats.
 
-
-  method convert_date.
-    data lv_days type i.
-
-    check iv_days co '0123456789'.
-    lv_days = iv_days.
-    rv_date = c_excldt + lv_days.
-  endmethod.
-
-
-  method get_default_num_formats.
-
-    field-symbols <f> like line of rt_num_formats.
+    data ls_num_format like line of ct_num_formats.
 
     define _add_num_format.
-      append initial line to rt_num_formats assigning <f>.
-      <f>-numfmtid   = &1.
-      <f>-formatcode = &2.
+      ls_num_format-numfmtid   = &1.
+      ls_num_format-formatcode = &2.
+      insert ls_num_format into table ct_num_formats.
     end-of-definition.
 
     _add_num_format 0  'General'.
@@ -236,6 +220,21 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     _add_num_format 80 '[h]:mm:ss'.
     _add_num_format 81 'mmss.0'.
 
+  endmethod.
+
+
+  method constructor.
+    m_xlsx = cl_xlsx_document=>load_document( iv_xdata ).
+    m_workbook = m_xlsx->get_workbookpart( ).
+  endmethod.
+
+
+  method convert_date.
+    data lv_days type i.
+
+    check iv_days co '0123456789'.
+    lv_days = iv_days.
+    rv_date = c_excldt + lv_days.
   endmethod.
 
 
@@ -340,51 +339,25 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_style_part->get_data( ) ).
 
     data lt_num_formats type zcl_xlsxreader_proc_num_fmts=>ts_num_formats.
+    field-symbols <num_format> like line of lt_num_formats.
     lt_num_formats = zcl_xlsxreader_proc_num_fmts=>read( lo_xml_doc ).
+    add_default_num_formats( changing ct_num_formats = lt_num_formats ).
 
+    data lt_cell_styles type zcl_xlsxreader_proc_styles=>tt_cell_styles.
+    field-symbols <cell_style> like line of lt_cell_styles.
+    lt_cell_styles = zcl_xlsxreader_proc_styles=>read( lo_xml_doc ).
 
-    data lo_attrs type ref to if_ixml_named_node_map.
-    data ls_num_format like line of lt_num_formats.
-    lt_num_formats = get_default_num_formats( ).
+    field-symbols <style> like line of rt_styles.
+    append initial line to rt_styles. " Default standard style
+    append initial line to rt_styles. " Default standard style 2 ???
 
-    data lo_node_iterator type ref to if_ixml_node_iterator.
-    data lo_node type ref to if_ixml_node.
-
-
-*    lo_node_iterator = get_iterator_of(
-*      io_xml_doc  =  lo_xml_doc
-*      iv_tag_name = 'numFmt' ).
-*    lo_node = lo_node_iterator->get_next( ).
-*    while lo_node is not initial.
-*      lo_attrs     = lo_node->get_attributes( ).
-*      ls_num_format-index  = lo_attrs->get_named_item( 'numFmtId' )->get_value( ).
-*      ls_num_format-format = lo_attrs->get_named_item( 'formatCode' )->get_value( ).
-*      insert ls_num_format into table lt_num_formats.
-*      lo_node = lo_node_iterator->get_next( ).
-*    endwhile.
-
-    data ls_style like line of rt_styles.
-    append ls_style to rt_styles. " Default standard style
-    append ls_style to rt_styles. " Default standard style 2 ???
-
-    data lv_num_format_id type i.
-    data lo_element type ref to if_ixml_element.
-    lo_element = lo_xml_doc->find_from_name( name = 'cellXfs' ).
-    lo_element->get_elements_by_tag_name( name = 'xf' ).
-
-
-    lo_node_iterator = get_iterator_of(
-      io_xml_doc  =  lo_xml_doc
-      iv_tag_name = 'xf' ).
-    lo_node = lo_node_iterator->get_next( ).
-    while lo_node is not initial.
-      lo_attrs         = lo_node->get_attributes( ).
-      lv_num_format_id = lo_attrs->get_named_item( 'numFmtId' )->get_value( ).
-      read table lt_num_formats into ls_num_format with key numfmtid = lv_num_format_id.
-      ls_style-num_format = ls_num_format-formatcode.
-      append ls_style to rt_styles.
-      lo_node = lo_node_iterator->get_next( ).
-    endwhile.
+    loop at lt_cell_styles assigning <cell_style>.
+      append initial line to rt_styles assigning <style>.
+      read table lt_num_formats assigning <num_format> with key numfmtid = <cell_style>-numfmtid.
+      if sy-subrc = 0.
+        <style>-num_format = <num_format>-formatcode.
+      endif.
+    endloop.
 
   endmethod.
 
