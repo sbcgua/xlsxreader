@@ -25,12 +25,6 @@ public section.
     end of ts_table .
 
   types:
-    begin of ts_sheet,
-      name  type string,
-      id    type string,
-    end of ts_sheet .
-
-  types:
     begin of ty_style,
       num_format type string,
     end of ty_style.
@@ -40,8 +34,6 @@ public section.
 
   types:
     tt_table type standard table of ts_table with key col row .
-  types:
-    tt_sheet type standard table of ts_sheet with key name .
 
   class-methods load
     importing
@@ -84,16 +76,16 @@ public section.
 protected section.
 private section.
 
-  data m_workbook type ref to cl_xlsx_workbookpart .
-  data m_sheets type tt_sheet .
-  data m_xlsx type ref to cl_xlsx_document .
-  constants c_ns_r type string value 'http://schemas.openxmlformats.org/officeDocument/2006/relationships' ##NO_TEXT.
   constants c_excldt type dats value '19000101' ##NO_TEXT.
+
+  data mo_workbook type ref to cl_xlsx_workbookpart .
+  data mt_sheets type zcl_xlsxreader_proc_sheets=>tt_sheets .
+  data mo_xlsx type ref to cl_xlsx_document .
   data mt_shared_strings type string_table.
 
   methods get_sheets
     returning
-      value(rt_sheets) type tt_sheet
+      value(rt_sheets) type zcl_xlsxreader_proc_sheets=>tt_sheets
     raising
       cx_openxml_format .
 
@@ -224,8 +216,8 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
 
   method constructor.
-    m_xlsx = cl_xlsx_document=>load_document( iv_xdata ).
-    m_workbook = m_xlsx->get_workbookpart( ).
+    mo_xlsx = cl_xlsx_document=>load_document( iv_xdata ).
+    mo_workbook = mo_xlsx->get_workbookpart( ).
   endmethod.
 
 
@@ -290,36 +282,20 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
   method get_sheets.
 
-    data ls_sheet type ts_sheet.
-    data lo_node_iterator type ref to if_ixml_node_iterator.
-    data lo_node type ref to if_ixml_node.
-    data lo_attrs type ref to if_ixml_named_node_map.
-
-    if m_sheets is initial.
-      lo_node_iterator = get_iterator_of(
-        io_xml_doc  = zcl_xlsxreader_xml_utils=>parse_xmldoc( m_workbook->get_data( ) )
-        iv_tag_name = 'sheet' ).
-      lo_node = lo_node_iterator->get_next( ).
-
-      while lo_node is bound.
-        lo_attrs      = lo_node->get_attributes( ).
-        ls_sheet-name = lo_attrs->get_named_item( 'name' )->get_value( ).
-        ls_sheet-id   = lo_attrs->get_named_item_ns(
-          name = 'id'
-          uri  = c_ns_r )->get_value( ).
-        append ls_sheet to me->m_sheets.
-        lo_node = lo_node_iterator->get_next( ).
-      endwhile.
+    if mt_sheets is initial.
+      data lo_xml_doc type ref to if_ixml_document.
+      lo_xml_doc = zcl_xlsxreader_xml_utils=>parse_xmldoc( mo_workbook->get_data( ) ).
+      mt_sheets  = zcl_xlsxreader_proc_sheets=>read( lo_xml_doc ).
     endif.
 
-    rt_sheets = m_sheets.
+    rt_sheets = mt_sheets.
 
   endmethod.
 
 
   method get_sheet_names.
 
-    data lt_sheets like m_sheets.
+    data lt_sheets like mt_sheets.
     field-symbols <s> like line of lt_sheets.
 
     lt_sheets = get_sheets( ).
@@ -335,7 +311,7 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
     data lo_style_part type ref to cl_xlsx_stylespart.
     data lo_xml_doc type ref to if_ixml_document.
-    lo_style_part = m_workbook->get_stylespart( ).
+    lo_style_part = mo_workbook->get_stylespart( ).
     lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_style_part->get_data( ) ).
 
     data lt_num_formats type zcl_xlsxreader_proc_num_fmts=>ts_num_formats.
@@ -380,7 +356,7 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     data lo_shared_st type ref to cl_xlsx_sharedstringspart.
     data lo_xml_doc type ref to if_ixml_document.
 
-    lo_shared_st = m_workbook->get_sharedstringspart( ).
+    lo_shared_st = mo_workbook->get_sharedstringspart( ).
     lo_xml_doc   = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_shared_st->get_data( ) ).
     mt_shared_strings = zcl_xlsxreader_proc_shared_str=>read( lo_xml_doc ).
 
@@ -389,16 +365,16 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
   method load_worksheet_raw.
 
-    data ls_sheet type ts_sheet.
+    data ls_sheet like line of mt_sheets.
     data lo_worksheet type ref to cl_xlsx_worksheetpart.
     data lo_node_iterator type ref to if_ixml_node_iterator.
     data lo_node type ref to if_ixml_node.
 
-    read table m_sheets into ls_sheet with table key name = iv_name.
+    read table mt_sheets into ls_sheet with table key name = iv_name.
     if sy-subrc ne 0.
       raise exception type cx_openxml_not_found.
     endif.
-    lo_worksheet    ?= m_workbook->get_part_by_id( ls_sheet-id ).
+    lo_worksheet    ?= mo_workbook->get_part_by_id( ls_sheet-id ).
     lo_node_iterator = get_iterator_of(
       io_xml_doc  = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_worksheet->get_data( ) )
       iv_tag_name = 'row' ).
