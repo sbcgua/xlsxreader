@@ -12,7 +12,7 @@ public section.
       value    type string,
       column   type string,
       row      type string,
-      style    type string,
+      style    type i,
     end of ty_raw_cell,
     tt_raw_cells type standard table of ty_raw_cell with default key.
 
@@ -29,6 +29,14 @@ public section.
       name  type string,
       id    type string,
     end of ts_sheet .
+
+  types:
+    begin of ty_style,
+      num_format type string,
+    end of ty_style.
+
+  types:
+    tt_styles type standard table of ty_style with default key.
 
   types:
     tt_table type standard table of ts_table with key col row .
@@ -66,6 +74,13 @@ public section.
     raising
       cx_openxml_format .
 
+  methods get_styles
+    returning
+      value(rt_styles) type tt_styles
+    raising
+      cx_openxml_format
+      cx_openxml_not_found.
+
 protected section.
 private section.
 
@@ -81,12 +96,6 @@ private section.
       value(rt_sheets) type tt_sheet
     raising
       cx_openxml_format .
-
-  methods get_xmldoc
-    importing
-      !iv_xml type xstring
-    returning
-      value(ro_xmldoc) type ref to if_ixml_document .
 
   methods convert_date
     importing
@@ -125,6 +134,10 @@ private section.
     changing
       ct_raw_cells type tt_raw_cells.
 
+  methods get_default_num_formats
+    returning
+      value(rt_num_formats) type zcl_xlsxreader_proc_num_fmts=>tt_num_formats.
+
 ENDCLASS.
 
 
@@ -144,6 +157,85 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     check iv_days co '0123456789'.
     lv_days = iv_days.
     rv_date = c_excldt + lv_days.
+  endmethod.
+
+
+  method get_default_num_formats.
+
+    field-symbols <f> like line of rt_num_formats.
+
+    define _add_num_format.
+      append initial line to rt_num_formats assigning <f>.
+      <f>-numfmtid   = &1.
+      <f>-formatcode = &2.
+    end-of-definition.
+
+    _add_num_format 0  'General'.
+    _add_num_format 1  '0'.
+    _add_num_format 2  '0.00'.
+    _add_num_format 3  '#,##0'.
+    _add_num_format 4  '#,##0.00'.
+    _add_num_format 5  '$#,##0_);($#,##0)'.
+    _add_num_format 6  '$#,##0_);[Red]($#,##0)'.
+    _add_num_format 7  '$#,##0.00_);($#,##0.00)'.
+    _add_num_format 8  '$#,##0.00_);[Red]($#,##0.00)'.
+    _add_num_format 9  '0%'.
+    _add_num_format 10 '0.00%'.
+    _add_num_format 11 '0.00E+00'.
+    _add_num_format 12 '# ?/?'.
+    _add_num_format 13 '# ??/??'.
+    _add_num_format 14 'm/d/yy'.
+    _add_num_format 15 'd-mmm-yy'.
+    _add_num_format 16 'd-mmm'.
+    _add_num_format 17 'mmm-yy'.
+    _add_num_format 18 'h:mm AM/PM'.
+    _add_num_format 19 'h:mm:ss AM/PM'.
+    _add_num_format 20 'h:mm'.
+    _add_num_format 21 'h:mm:ss'.
+    _add_num_format 22 'm/d/yy h:mm'.
+    _add_num_format 36 'm/d/yy'.
+    _add_num_format 37 '#,##0 ;(#,##0)'.
+    _add_num_format 38 '#,##0 ;[Red](#,##0)'.
+    _add_num_format 39 '#,##0.00;(#,##0.00)'.
+    _add_num_format 40 '#,##0.00;[Red](#,##0.00)'.
+    _add_num_format 45 'mm:ss'.
+    _add_num_format 46 '[h]:mm:ss'.
+    _add_num_format 47 'mmss.0'.
+    _add_num_format 48 '##0.0E+0'.
+    _add_num_format 49 '@'.
+    _add_num_format 50 'm/d/yy'.
+    _add_num_format 51 'm/d/yy'.
+    _add_num_format 52 'm/d/yy'.
+    _add_num_format 53 'm/d/yy'.
+    _add_num_format 54 'm/d/yy'.
+    _add_num_format 55 'm/d/yy'.
+    _add_num_format 56 'm/d/yy'.
+    _add_num_format 57 'm/d/yy'.
+    _add_num_format 58 'm/d/yy'.
+    _add_num_format 59 '0'.
+    _add_num_format 60 '0.00'.
+    _add_num_format 61 '#,##0'.
+    _add_num_format 62 '#,##0.00'.
+    _add_num_format 63 '$#,##0_);($#,##0)'.
+    _add_num_format 64 '$#,##0_);[Red]($#,##0)'.
+    _add_num_format 65 '$#,##0.00_);($#,##0.00)'.
+    _add_num_format 66 '$#,##0.00_);[Red]($#,##0.00)'.
+    _add_num_format 67 '0%'.
+    _add_num_format 68 '0.00%'.
+    _add_num_format 69 '# ?/?'.
+    _add_num_format 70 '# ??/??'.
+    _add_num_format 71 'm/d/yy'.
+    _add_num_format 72 'm/d/yy'.
+    _add_num_format 73 'd-mmm-yy'.
+    _add_num_format 74 'd-mmm'.
+    _add_num_format 75 'mmm-yy'.
+    _add_num_format 76 'h:mm'.
+    _add_num_format 77 'h:mm:ss'.
+    _add_num_format 78 'm/d/yy h:mm'.
+    _add_num_format 79 'mm:ss'.
+    _add_num_format 80 '[h]:mm:ss'.
+    _add_num_format 81 'mmss.0'.
+
   endmethod.
 
 
@@ -206,7 +298,7 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
     if m_sheets is initial.
       lo_node_iterator = get_iterator_of(
-        io_xml_doc  = get_xmldoc( m_workbook->get_data( ) )
+        io_xml_doc  = zcl_xlsxreader_xml_utils=>parse_xmldoc( m_workbook->get_data( ) )
         iv_tag_name = 'sheet' ).
       lo_node = lo_node_iterator->get_next( ).
 
@@ -240,23 +332,59 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
   endmethod.
 
 
-  method get_xmldoc.
+  method get_styles.
 
-    data lo_ixml type ref to if_ixml.
-    data lo_ixml_sf type ref to if_ixml_stream_factory.
-    data lo_ixml_stream type ref to if_ixml_istream.
-    data lo_ixml_parser type ref to if_ixml_parser.
+    data lo_style_part type ref to cl_xlsx_stylespart.
+    data lo_xml_doc type ref to if_ixml_document.
+    lo_style_part = m_workbook->get_stylespart( ).
+    lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_style_part->get_data( ) ).
 
-    lo_ixml        = cl_ixml=>create( ).
-    lo_ixml_sf     = lo_ixml->create_stream_factory( ).
-    lo_ixml_stream = lo_ixml_sf->create_istream_xstring( iv_xml ).
-    ro_xmldoc      = lo_ixml->create_document( ).
-    lo_ixml_parser = lo_ixml->create_parser(
-      document       = ro_xmldoc
-      istream        = lo_ixml_stream
-      stream_factory = lo_ixml_sf ).
+    data lt_num_formats type zcl_xlsxreader_proc_num_fmts=>ts_num_formats.
+    lt_num_formats = zcl_xlsxreader_proc_num_fmts=>read( lo_xml_doc ).
 
-    lo_ixml_parser->parse( ).
+
+    data lo_attrs type ref to if_ixml_named_node_map.
+    data ls_num_format like line of lt_num_formats.
+    lt_num_formats = get_default_num_formats( ).
+
+    data lo_node_iterator type ref to if_ixml_node_iterator.
+    data lo_node type ref to if_ixml_node.
+
+
+*    lo_node_iterator = get_iterator_of(
+*      io_xml_doc  =  lo_xml_doc
+*      iv_tag_name = 'numFmt' ).
+*    lo_node = lo_node_iterator->get_next( ).
+*    while lo_node is not initial.
+*      lo_attrs     = lo_node->get_attributes( ).
+*      ls_num_format-index  = lo_attrs->get_named_item( 'numFmtId' )->get_value( ).
+*      ls_num_format-format = lo_attrs->get_named_item( 'formatCode' )->get_value( ).
+*      insert ls_num_format into table lt_num_formats.
+*      lo_node = lo_node_iterator->get_next( ).
+*    endwhile.
+
+    data ls_style like line of rt_styles.
+    append ls_style to rt_styles. " Default standard style
+    append ls_style to rt_styles. " Default standard style 2 ???
+
+    data lv_num_format_id type i.
+    data lo_element type ref to if_ixml_element.
+    lo_element = lo_xml_doc->find_from_name( name = 'cellXfs' ).
+    lo_element->get_elements_by_tag_name( name = 'xf' ).
+
+
+    lo_node_iterator = get_iterator_of(
+      io_xml_doc  =  lo_xml_doc
+      iv_tag_name = 'xf' ).
+    lo_node = lo_node_iterator->get_next( ).
+    while lo_node is not initial.
+      lo_attrs         = lo_node->get_attributes( ).
+      lv_num_format_id = lo_attrs->get_named_item( 'numFmtId' )->get_value( ).
+      read table lt_num_formats into ls_num_format with key numfmtid = lv_num_format_id.
+      ls_style-num_format = ls_num_format-formatcode.
+      append ls_style to rt_styles.
+      lo_node = lo_node_iterator->get_next( ).
+    endwhile.
 
   endmethod.
 
@@ -277,20 +405,11 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     endif.
 
     data lo_shared_st type ref to cl_xlsx_sharedstringspart.
-    data lo_node_iterator type ref to if_ixml_node_iterator.
-    data lo_node type ref to if_ixml_node.
-    data lv_str type string.
+    data lo_xml_doc type ref to if_ixml_document.
 
-    lo_shared_st     = m_workbook->get_sharedstringspart( ).
-    lo_node_iterator = get_iterator_of(
-      io_xml_doc  = get_xmldoc( lo_shared_st->get_data( ) )
-      iv_tag_name = 'si' ).
-    lo_node = lo_node_iterator->get_next( ).
-    while lo_node is not initial.
-      lv_str = lo_node->get_value( ).
-      append lv_str to mt_shared_strings.
-      lo_node = lo_node_iterator->get_next( ).
-    endwhile.
+    lo_shared_st = m_workbook->get_sharedstringspart( ).
+    lo_xml_doc   = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_shared_st->get_data( ) ).
+    mt_shared_strings = zcl_xlsxreader_proc_shared_str=>read( lo_xml_doc ).
 
   endmethod.
 
@@ -308,7 +427,7 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     endif.
     lo_worksheet    ?= m_workbook->get_part_by_id( ls_sheet-id ).
     lo_node_iterator = get_iterator_of(
-      io_xml_doc  = get_xmldoc( lo_worksheet->get_data( ) )
+      io_xml_doc  = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_worksheet->get_data( ) )
       iv_tag_name = 'row' ).
     lo_node          = lo_node_iterator->get_next( ).
 

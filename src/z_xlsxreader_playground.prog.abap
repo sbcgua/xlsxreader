@@ -24,6 +24,15 @@ class lcl_app implementation.
     xl     = zcl_xlsxreader=>load( xdata ).
     sheets = xl->get_sheet_names( ).
 
+    data lo_reader type ref to zif_excel_reader.
+    data lo_excel type ref to zcl_excel.
+    create object lo_reader type zcl_excel_reader_2007.
+    lo_excel = lo_reader->load( xdata ).
+
+
+    data styles type zcl_xlsxreader=>tt_styles.
+    styles = xl->get_styles( ).
+
     tab = xl->get_sheet( '_contents' ).
     tab = xl->get_sheet( 'TESTCASES' ).
     tab = xl->get_sheet( 'SFLIGHT' ).
