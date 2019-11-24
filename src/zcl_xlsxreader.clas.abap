@@ -6,6 +6,8 @@ public section.
 
   constants c_openxml_namespace_uri type string value 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'.
 
+  interfaces zif_xlsxreader_node_processor.
+
   types:
     begin of ty_num_format,
       numfmtid   type i,
@@ -34,34 +36,26 @@ public section.
 
   types:
     begin of ty_raw_cell,
-      index    type i,
-      type     type c length 1,
-      cell_ref type string,
-      value    type string,
-      column   type string,
-      row      type string,
-      style    type i,
+      r     type string,
+      s     type i,
+      t     type string,
+      row   type string,
+      value type string,
     end of ty_raw_cell,
-    tt_raw_cells type standard table of ty_raw_cell with default key.
+    tt_raw_cells type standard table of ty_raw_cell with key r.
 
-
-*  types:
-*    begin of ty_raw_cell,
-*      index    type i,
-*      type     type c length 1,
-*      cell_ref type string,
-*      value    type string,
-*      column   type string,
-*      row      type string,
-*      style    type i,
-*    end of ty_raw_cell,
-*    tt_raw_cells type standard table of ty_raw_cell with default key.
+  types:
+    begin of ty_parsing_context,
+      stage type string,
+      data  type ref to data,
+    end of ty_parsing_context.
 
   types:
     begin of ty_cell,
       col   type c length 3,
       row   type i,
       type  type c length 1,
+      style type i,
       value type string,
     end of ty_cell .
 
@@ -89,7 +83,7 @@ public section.
     importing
       !iv_name type string
     returning
-      value(rt_table) type tt_cells
+      value(rt_cells) type tt_cells
     raising
       cx_openxml_not_found
       cx_openxml_format .
@@ -146,7 +140,7 @@ private section.
     raising
       cx_openxml_format cx_openxml_not_found.
 
-  methods load_worksheet_raw
+  methods parse_worksheet
     importing
       iv_name type string
     returning
@@ -154,21 +148,14 @@ private section.
     raising
       cx_openxml_format cx_openxml_not_found.
 
-  methods get_iterator_of
-    importing
-      io_xml_doc type ref to if_ixml_document
-      iv_tag_name type string
-    returning
-      value(ro_iterator) type ref to if_ixml_node_iterator.
-
-  methods parse_row
-    importing
-      io_node type ref to if_ixml_node
-    changing
-      ct_raw_cells type tt_raw_cells.
-
   methods add_default_num_formats
     changing ct_num_formats type tt_num_formats.
+
+  methods convert_raw_cells
+    importing
+      it_raw_cells type tt_raw_cells
+    returning
+      value(rt_cells) type tt_cells.
 
 ENDCLASS.
 
@@ -185,7 +172,6 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
       ls_num_format-numfmtid   = &1.
       ls_num_format-formatcode = &2.
       append ls_num_format to ct_num_formats.
-*      insert ls_num_format into table ct_num_formats.
     end-of-definition.
 
     _add_num_format 0  'General'.
@@ -272,53 +258,48 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
   endmethod.
 
 
-  method get_iterator_of.
+  method convert_raw_cells.
 
-    data lo_ixml_root type ref to if_ixml_element.
-    data lo_nodes type ref to if_ixml_node_collection.
+    field-symbols <c> like line of it_raw_cells.
+    field-symbols <res> like line of rt_cells.
+    data lv_row type string.
+    data lv_col type string.
 
-    lo_ixml_root = io_xml_doc->get_root_element( ).
-    lo_nodes     = lo_ixml_root->get_elements_by_tag_name( name = iv_tag_name ).
-    ro_iterator  = lo_nodes->create_iterator( ).
+    loop at it_raw_cells assigning <c>.
+      append initial line to rt_cells assigning <res>.
+
+      "get column
+      lv_row = <c>-row.
+      lv_col = <c>-r. " cell ref
+      condense lv_row no-gaps.
+      replace lv_row in lv_col with space.
+
+      <res>-row   = lv_row.
+      <res>-col   = lv_col.
+      <res>-type  = <c>-t.
+      <res>-style = <c>-s.
+
+      if <c>-t eq 's'.
+        <res>-value = get_shared_string( <c>-value + 1 ).
+      else.
+        <res>-value = <c>-value.
+      endif.
+    endloop.
 
   endmethod.
 
 
   method get_shared_string.
-
     read table mt_shared_strings into rv_str index iv_index.
-
   endmethod.
 
 
   method get_sheet.
-
     data lt_raw_cells type tt_raw_cells.
-    lt_raw_cells = load_worksheet_raw( iv_name ).
+
     load_shared_strings( ).
-
-    field-symbols <c> like line of lt_raw_cells.
-    field-symbols <res> like line of rt_table.
-
-    " post process
-    loop at lt_raw_cells assigning <c>.
-      "get column
-      <c>-column = <c>-cell_ref.
-      condense <c>-row no-gaps.
-      replace <c>-row in <c>-column with space.
-
-      if <c>-type eq 's'.
-        <c>-value = get_shared_string( <c>-index + 1 ).
-      endif.
-      condense <c>-value. " ???
-
-      append initial line to rt_table assigning <res>.
-      <res>-row   = <c>-row.
-      <res>-col   = <c>-column.
-      <res>-type  = <c>-type.
-      <res>-value = <c>-value.
-    endloop.
-
+    lt_raw_cells = parse_worksheet( iv_name ).
+    rt_cells     = convert_raw_cells( lt_raw_cells ).
   endmethod.
 
 
@@ -432,71 +413,77 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
   endmethod.
 
 
-  method load_worksheet_raw.
+  method parse_worksheet.
 
     data ls_sheet like line of mt_sheets.
     data lo_worksheet type ref to cl_xlsx_worksheetpart.
     data lo_xml_doc type ref to if_ixml_document.
+    data ls_context type ty_parsing_context.
 
     read table mt_sheets into ls_sheet with table key name = iv_name.
     if sy-subrc ne 0.
       raise exception type cx_openxml_not_found.
     endif.
 
+    ls_context-stage = 'row'.
+    get reference of rt_raw_cells into ls_context-data.
+
     lo_worksheet ?= mo_workbook->get_part_by_id( ls_sheet-id ).
     lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_worksheet->get_data( ) ).
-    zcl_xlsxreader_xml_utils=>children_to_table(
-      exporting
-        io_node = lo_xml_doc->find_from_name_ns(
-          name = 'sheetData'
-          uri  = c_openxml_namespace_uri )
-        iv_value_to = '*'
-        iv_no_attributes = abap_true
-      importing
-        et_tab = rt_raw_cells ).
+    zcl_xlsxreader_xml_utils=>iterate_children(
+      io_node = lo_xml_doc->find_from_name_ns(
+        name = 'sheetData'
+        uri  = c_openxml_namespace_uri )
+      i_context = ls_context
+      ii_item_processor = me ).
 
   endmethod.
 
 
-  method parse_row.
+  method zif_xlsxreader_node_processor~process_node.
 
-    field-symbols <c> like line of ct_raw_cells.
-    data lo_attrs type ref to if_ixml_named_node_map.
-    data lo_node_iterator type ref to if_ixml_node_iterator.
-    data lo_cell_node type ref to if_ixml_node.
-    data lo_attr type ref to if_ixml_node.
-    data lv_row like <c>-row.
+    field-symbols <context> type ty_parsing_context.
+    field-symbols <cells> type tt_raw_cells.
+    field-symbols <c> like line of <cells>.
+    assign i_context to <context>.
 
-    lo_attrs         = io_node->get_attributes( ).
-    lv_row           = lo_attrs->get_named_item( 'r' )->get_value( ).
-    lo_node_iterator = io_node->get_children( )->create_iterator( ).
-    lo_cell_node     = lo_node_iterator->get_next( ).
+    case <context>-stage.
+      when 'row'.
+        data lo_row_element type ref to if_ixml_element.
+        data lv_row type i.
+        data lt_row_cells type tt_raw_cells.
+        data ls_row_context type ty_parsing_context.
 
-    while lo_cell_node is bound.
-      append initial line to ct_raw_cells assigning <c>.
-      <c>-row = lv_row.
+        ls_row_context-stage = 'cell'.
+        get reference of lt_row_cells into ls_row_context-data.
 
-      lo_attrs     = lo_cell_node->get_attributes( ).
-      <c>-cell_ref = lo_attrs->get_named_item( 'r' )->get_value( ).
+        zcl_xlsxreader_xml_utils=>iterate_children(
+          io_node   = io_node
+          i_context = ls_row_context
+          ii_item_processor = me ).
 
-      lo_attr = lo_attrs->get_named_item( 't' ).
-      if lo_attr is bound.
-        <c>-type = lo_attr->get_value( ).
-      endif.
+        lo_row_element ?= io_node.
+        lv_row = lo_row_element->get_attribute_ns( 'r' ).
+        loop at lt_row_cells assigning <c>.
+          <c>-row = lv_row.
+        endloop.
 
-      lo_attr = lo_attrs->get_named_item( 's' ).
-      if lo_attr is bound.
-        <c>-style = lo_attr->get_value( ).
-      endif.
+        assign <context>-data->* to <cells>.
+        append lines of lt_row_cells to <cells>.
 
-      if <c>-type = 's'. " string
-        <c>-index = lo_cell_node->get_value( ).
-      else.
-        <c>-value = lo_cell_node->get_value( ).
-      endif.
+      when 'cell'.
+        assign <context>-data->* to <cells>.
+        append initial line to <cells> assigning <c>.
+        zcl_xlsxreader_xml_utils=>attributes_to_struc(
+          exporting
+            io_node     = io_node
+          importing
+            es_struc = <c> ).
+        <c>-value = io_node->get_value( ).
 
-      lo_cell_node     = lo_node_iterator->get_next( ).
-    endwhile.
+      when others.
+        assert 1 = 0.
+    endcase.
 
   endmethod.
 ENDCLASS.

@@ -8,13 +8,15 @@ class ZCL_XLSXREADER_XML_UTILS definition
     class-methods iterate_children
       importing
         io_node type ref to if_ixml_node
-        ii_item_processor type ref to zif_xlsxreader_node_processor.
+        ii_item_processor type ref to zif_xlsxreader_node_processor
+        i_context type any optional.
 
     class-methods iterate_children_by_tag_name
       importing
         io_element type ref to if_ixml_element
         iv_tag_name type string
-        ii_item_processor type ref to zif_xlsxreader_node_processor.
+        ii_item_processor type ref to zif_xlsxreader_node_processor
+        i_context type any optional.
 
     class-methods parse_xmldoc
       importing
@@ -42,7 +44,8 @@ class ZCL_XLSXREADER_XML_UTILS definition
     class-methods iterate_nodes
       importing
         io_node_iterator type ref to if_ixml_node_iterator
-        ii_item_processor type ref to zif_xlsxreader_node_processor.
+        ii_item_processor type ref to zif_xlsxreader_node_processor
+        i_context type any.
 
 ENDCLASS.
 
@@ -80,8 +83,13 @@ CLASS ZCL_XLSXREADER_XML_UTILS IMPLEMENTATION.
 
     data lo_node_iterator type ref to if_ixml_node_iterator.
     data lo_node type ref to if_ixml_node.
+    data lv_value_to like iv_value_to.
+
+    clear et_tab.
+
     lo_node_iterator = io_node->get_children( )->create_iterator( ).
     lo_node          = lo_node_iterator->get_next( ).
+    lv_value_to      = to_upper( iv_value_to ).
 
     field-symbols <i> type any.
     field-symbols <fld> type any.
@@ -95,10 +103,10 @@ CLASS ZCL_XLSXREADER_XML_UTILS IMPLEMENTATION.
           importing
             es_struc = <i> ).
       endif.
-      if iv_value_to = '*'.
+      if lv_value_to = '*'.
         <i> = lo_node->get_value( ).
-      elseif iv_value_to is not initial.
-        assign component iv_value_to of structure <i> to <fld>.
+      elseif lv_value_to is not initial.
+        assign component lv_value_to of structure <i> to <fld>.
         if sy-subrc = 0.
           <fld> = lo_node->get_value( ).
         endif.
@@ -111,14 +119,16 @@ CLASS ZCL_XLSXREADER_XML_UTILS IMPLEMENTATION.
 
   method iterate_children.
     iterate_nodes(
-      io_node_iterator = io_node->get_children( )->create_iterator( )
+      io_node_iterator  = io_node->get_children( )->create_iterator( )
+      i_context         = i_context
       ii_item_processor = ii_item_processor ).
   endmethod.
 
 
   method iterate_children_by_tag_name.
     iterate_nodes(
-      io_node_iterator = io_element->get_elements_by_tag_name_ns( name = iv_tag_name )->create_iterator( )
+      io_node_iterator  = io_element->get_elements_by_tag_name_ns( name = iv_tag_name )->create_iterator( )
+      i_context         = i_context
       ii_item_processor = ii_item_processor ).
   endmethod.
 
@@ -128,7 +138,9 @@ CLASS ZCL_XLSXREADER_XML_UTILS IMPLEMENTATION.
     lo_node          = io_node_iterator->get_next( ).
 
     while lo_node is bound.
-      ii_item_processor->process_node( lo_node ).
+      ii_item_processor->process_node(
+        i_context = i_context
+        io_node   = lo_node ).
       lo_node = io_node_iterator->get_next( ).
     endwhile.
   endmethod.
