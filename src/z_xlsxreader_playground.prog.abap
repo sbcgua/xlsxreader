@@ -28,11 +28,10 @@ class lcl_app implementation.
       write: / str.
     endloop.
 
-    data lo_reader type ref to zif_excel_reader.
-    data lo_excel type ref to zcl_excel.
-    create object lo_reader type zcl_excel_reader_2007.
-    lo_excel = lo_reader->load( xdata ).
-
+*    data lo_reader type ref to zif_excel_reader.
+*    data lo_excel type ref to zcl_excel.
+*    create object lo_reader type zcl_excel_reader_2007.
+*    lo_excel = lo_reader->load( xdata ).
 
     data styles type zcl_xlsxreader=>tt_styles.
     styles = xl->get_styles( ).
