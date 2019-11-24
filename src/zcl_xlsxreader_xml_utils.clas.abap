@@ -28,6 +28,15 @@ class ZCL_XLSXREADER_XML_UTILS definition
       exporting
         es_struc type any.
 
+    class-methods children_to_table
+      importing
+        io_node type ref to if_ixml_node
+        iv_value_to type abap_compname optional
+        iv_no_attributes type abap_bool default abap_false
+      exporting
+        et_tab type standard table.
+
+
   protected section.
   private section.
     class-methods iterate_nodes
@@ -62,6 +71,39 @@ CLASS ZCL_XLSXREADER_XML_UTILS IMPLEMENTATION.
         <fld> = lo_attr->get_value( ).
       endif.
       lo_attr ?= lo_iterator->get_next( ).
+    endwhile.
+
+  endmethod.
+
+
+  method children_to_table.
+
+    data lo_node_iterator type ref to if_ixml_node_iterator.
+    data lo_node type ref to if_ixml_node.
+    lo_node_iterator = io_node->get_children( )->create_iterator( ).
+    lo_node          = lo_node_iterator->get_next( ).
+
+    field-symbols <i> type any.
+    field-symbols <fld> type any.
+
+    while lo_node is bound.
+      append initial line to et_tab assigning <i>.
+      if iv_no_attributes = abap_false.
+        attributes_to_struc(
+          exporting
+            io_node = lo_node
+          importing
+            es_struc = <i> ).
+      endif.
+      if iv_value_to = '*'.
+        <i> = lo_node->get_value( ).
+      elseif iv_value_to is not initial.
+        assign component iv_value_to of structure <i> to <fld>.
+        if sy-subrc = 0.
+          <fld> = lo_node->get_value( ).
+        endif.
+      endif.
+      lo_node = lo_node_iterator->get_next( ).
     endwhile.
 
   endmethod.

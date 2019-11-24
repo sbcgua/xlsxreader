@@ -18,11 +18,15 @@ class lcl_app implementation.
     data xdata type xstring.
     data xl type ref to zcl_xlsxreader.
     data sheets type string_table.
-    data tab type zcl_xlsxreader=>tt_table.
+    data tab type zcl_xlsxreader=>tt_cells.
+    data str type string.
 
     xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
     xl     = zcl_xlsxreader=>load( xdata ).
     sheets = xl->get_sheet_names( ).
+    loop at sheets into str.
+      write: / str.
+    endloop.
 
     data lo_reader type ref to zif_excel_reader.
     data lo_excel type ref to zcl_excel.

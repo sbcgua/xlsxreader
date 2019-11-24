@@ -4,6 +4,34 @@ class ZCL_XLSXREADER definition
 
 public section.
 
+  constants c_openxml_namespace_uri type string value 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'.
+
+  types:
+    begin of ty_num_format,
+      numfmtid   type i,
+      formatcode type string,
+    end of ty_num_format.
+  types:
+    tt_num_formats type table of ty_num_format with key numfmtid.
+  types:
+    ts_num_formats type sorted table of ty_num_format with unique key numfmtid.
+
+  types:
+    begin of ty_sheet,
+      name    type string,
+      sheetid type i,
+      id      type string,
+    end of ty_sheet .
+  types:
+    tt_sheets type table of ty_sheet with key name .
+
+  types:
+    begin of ty_cell_style,
+      numfmtid   type i,
+    end of ty_cell_style .
+  types:
+    tt_cell_styles type table of ty_cell_style with default key .
+
   types:
     begin of ty_raw_cell,
       index    type i,
@@ -16,13 +44,26 @@ public section.
     end of ty_raw_cell,
     tt_raw_cells type standard table of ty_raw_cell with default key.
 
+
+*  types:
+*    begin of ty_raw_cell,
+*      index    type i,
+*      type     type c length 1,
+*      cell_ref type string,
+*      value    type string,
+*      column   type string,
+*      row      type string,
+*      style    type i,
+*    end of ty_raw_cell,
+*    tt_raw_cells type standard table of ty_raw_cell with default key.
+
   types:
-    begin of ts_table,
+    begin of ty_cell,
       col   type c length 3,
       row   type i,
       type  type c length 1,
       value type string,
-    end of ts_table .
+    end of ty_cell .
 
   types:
     begin of ty_style,
@@ -33,7 +74,7 @@ public section.
     tt_styles type standard table of ty_style with default key.
 
   types:
-    tt_table type standard table of ts_table with key col row .
+    tt_cells type standard table of ty_cell with key col row .
 
   class-methods load
     importing
@@ -48,7 +89,7 @@ public section.
     importing
       !iv_name type string
     returning
-      value(rt_table) type tt_table
+      value(rt_table) type tt_cells
     raising
       cx_openxml_not_found
       cx_openxml_format .
@@ -79,13 +120,13 @@ private section.
   constants c_excldt type dats value '19000101' ##NO_TEXT.
 
   data mo_workbook type ref to cl_xlsx_workbookpart .
-  data mt_sheets type zcl_xlsxreader_proc_sheets=>tt_sheets .
+  data mt_sheets type tt_sheets .
   data mo_xlsx type ref to cl_xlsx_document .
   data mt_shared_strings type string_table.
 
   methods get_sheets
     returning
-      value(rt_sheets) type zcl_xlsxreader_proc_sheets=>tt_sheets
+      value(rt_sheets) type tt_sheets
     raising
       cx_openxml_format .
 
@@ -127,7 +168,7 @@ private section.
       ct_raw_cells type tt_raw_cells.
 
   methods add_default_num_formats
-    changing ct_num_formats type zcl_xlsxreader_proc_num_fmts=>ts_num_formats.
+    changing ct_num_formats type tt_num_formats.
 
 ENDCLASS.
 
@@ -143,7 +184,8 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     define _add_num_format.
       ls_num_format-numfmtid   = &1.
       ls_num_format-formatcode = &2.
-      insert ls_num_format into table ct_num_formats.
+      append ls_num_format to ct_num_formats.
+*      insert ls_num_format into table ct_num_formats.
     end-of-definition.
 
     _add_num_format 0  'General'.
@@ -285,7 +327,13 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     if mt_sheets is initial.
       data lo_xml_doc type ref to if_ixml_document.
       lo_xml_doc = zcl_xlsxreader_xml_utils=>parse_xmldoc( mo_workbook->get_data( ) ).
-      mt_sheets  = zcl_xlsxreader_proc_sheets=>read( lo_xml_doc ).
+      zcl_xlsxreader_xml_utils=>children_to_table(
+        exporting
+          io_node = lo_xml_doc->find_from_name_ns(
+            name = 'sheets'
+            uri  = c_openxml_namespace_uri )
+        importing
+          et_tab = mt_sheets ).
     endif.
 
     rt_sheets = mt_sheets.
@@ -314,22 +362,37 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
     lo_style_part = mo_workbook->get_stylespart( ).
     lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_style_part->get_data( ) ).
 
-    data lt_num_formats type zcl_xlsxreader_proc_num_fmts=>ts_num_formats.
-    field-symbols <num_format> like line of lt_num_formats.
-    lt_num_formats = zcl_xlsxreader_proc_num_fmts=>read( lo_xml_doc ).
+    data lt_num_formats type tt_num_formats.
+    zcl_xlsxreader_xml_utils=>children_to_table(
+      exporting
+        io_node = lo_xml_doc->find_from_name_ns(
+          name = 'numFmts'
+          uri  = c_openxml_namespace_uri )
+      importing
+        et_tab = lt_num_formats ).
     add_default_num_formats( changing ct_num_formats = lt_num_formats ).
 
-    data lt_cell_styles type zcl_xlsxreader_proc_styles=>tt_cell_styles.
-    field-symbols <cell_style> like line of lt_cell_styles.
-    lt_cell_styles = zcl_xlsxreader_proc_styles=>read( lo_xml_doc ).
+    data lt_cell_styles type tt_cell_styles.
+    zcl_xlsxreader_xml_utils=>children_to_table(
+      exporting
+        io_node = lo_xml_doc->find_from_name_ns(
+          name = 'cellXfs'
+          uri  = c_openxml_namespace_uri )
+      importing
+        et_tab = lt_cell_styles ).
 
+    data lt_num_formats_sorted type ts_num_formats.
+    field-symbols <cell_style> like line of lt_cell_styles.
+    field-symbols <num_format> like line of lt_num_formats_sorted.
     field-symbols <style> like line of rt_styles.
+
+    lt_num_formats_sorted = lt_num_formats.
     append initial line to rt_styles. " Default standard style
     append initial line to rt_styles. " Default standard style 2 ???
 
     loop at lt_cell_styles assigning <cell_style>.
       append initial line to rt_styles assigning <style>.
-      read table lt_num_formats assigning <num_format> with key numfmtid = <cell_style>-numfmtid.
+      read table lt_num_formats_sorted assigning <num_format> with key numfmtid = <cell_style>-numfmtid.
       if sy-subrc = 0.
         <style>-num_format = <num_format>-formatcode.
       endif.
@@ -339,11 +402,9 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
 
   method load.
-
     create object ro_instance
       exporting
         iv_xdata = iv_xdata.
-
   endmethod.
 
 
@@ -358,7 +419,15 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
     lo_shared_st = mo_workbook->get_sharedstringspart( ).
     lo_xml_doc   = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_shared_st->get_data( ) ).
-    mt_shared_strings = zcl_xlsxreader_proc_shared_str=>read( lo_xml_doc ).
+    zcl_xlsxreader_xml_utils=>children_to_table(
+      exporting
+        io_node = lo_xml_doc->find_from_name_ns(
+          name = 'sst'
+          uri  = c_openxml_namespace_uri )
+        iv_value_to = '*'
+        iv_no_attributes = abap_true
+      importing
+        et_tab = mt_shared_strings ).
 
   endmethod.
 
@@ -367,27 +436,24 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
     data ls_sheet like line of mt_sheets.
     data lo_worksheet type ref to cl_xlsx_worksheetpart.
-    data lo_node_iterator type ref to if_ixml_node_iterator.
-    data lo_node type ref to if_ixml_node.
+    data lo_xml_doc type ref to if_ixml_document.
 
     read table mt_sheets into ls_sheet with table key name = iv_name.
     if sy-subrc ne 0.
       raise exception type cx_openxml_not_found.
     endif.
-    lo_worksheet    ?= mo_workbook->get_part_by_id( ls_sheet-id ).
-    lo_node_iterator = get_iterator_of(
-      io_xml_doc  = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_worksheet->get_data( ) )
-      iv_tag_name = 'row' ).
-    lo_node          = lo_node_iterator->get_next( ).
 
-    while lo_node is not initial.
-      parse_row(
-        exporting
-          io_node = lo_node
-        changing
-          ct_raw_cells = rt_raw_cells ).
-      lo_node          = lo_node_iterator->get_next( ).
-    endwhile.
+    lo_worksheet ?= mo_workbook->get_part_by_id( ls_sheet-id ).
+    lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_worksheet->get_data( ) ).
+    zcl_xlsxreader_xml_utils=>children_to_table(
+      exporting
+        io_node = lo_xml_doc->find_from_name_ns(
+          name = 'sheetData'
+          uri  = c_openxml_namespace_uri )
+        iv_value_to = '*'
+        iv_no_attributes = abap_true
+      importing
+        et_tab = rt_raw_cells ).
 
   endmethod.
 
