@@ -27,6 +27,7 @@ class ZCL_XLSXREADER_XML_UTILS definition
     class-methods attributes_to_struc
       importing
         io_node type ref to if_ixml_node
+        iv_no_clear type abap_bool default abap_false
       exporting
         es_struc type any.
 
@@ -62,7 +63,9 @@ CLASS ZCL_XLSXREADER_XML_UTILS IMPLEMENTATION.
     data lv_attr_name type string.
     field-symbols <fld> type any.
 
-    clear es_struc.
+    if iv_no_clear = abap_false.
+      clear es_struc.
+    endif.
 
     lo_attrs    = io_node->get_attributes( ).
     lo_iterator = lo_attrs->create_iterator( ).

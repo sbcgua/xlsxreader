@@ -293,8 +293,15 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
       <res>-row   = lv_row.
       <res>-col   = column_to_index( lv_col ).
       <res>-type  = <c>-t.
-      <res>-style = <c>-s.
       <res>-ref   = <c>-r.
+
+      " Styles are not clear, need to read the spec ...
+      " +1 because the are indexed from 0
+      " +2 because there are 2 default excel styles, however cell style seems to refer real style list from style.xml
+      " style = -1 if undefined (filled in parse)
+      if <c>-s >= 0.
+        <res>-style = <c>-s + 1 + 2.
+      endif.
 
       if <c>-t eq 's'.
         <res>-value = get_shared_string( <c>-value + 1 ).
@@ -498,9 +505,11 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
       when 'cell'.
         assign <context>-data->* to <cells>.
         append initial line to <cells> assigning <c>.
+        <c>-s = -1. " undefined style
         zcl_xlsxreader_xml_utils=>attributes_to_struc(
           exporting
             io_node     = io_node
+            iv_no_clear = abap_true
           importing
             es_struc = <c> ).
         <c>-value = io_node->get_value( ).
