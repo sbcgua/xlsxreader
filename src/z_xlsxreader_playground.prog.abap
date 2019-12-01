@@ -9,6 +9,10 @@ class lcl_app definition.
         cx_openxml_not_found
         cx_openxml_format
         cx_static_check .
+
+    class-methods print_sheet
+      importing
+        tab type zcl_xlsxreader=>tt_cells.
 endclass.
 
 class lcl_app implementation.
@@ -37,9 +41,39 @@ class lcl_app implementation.
     styles = xl->get_styles( ).
 
     tab = xl->get_sheet( '_contents' ).
+    write: / '_contents'.
+    print_sheet( tab ).
+
     tab = xl->get_sheet( 'TESTCASES' ).
     tab = xl->get_sheet( 'SFLIGHT' ).
     tab = xl->get_sheet( 'COMPLEX' ).
+    write: / 'COMPLEX'.
+    print_sheet( tab ).
+
+
+
+  endmethod.
+
+  method print_sheet.
+
+    data cell like line of tab.
+    data lo_struc type ref to cl_abap_structdescr.
+    lo_struc ?= cl_abap_structdescr=>describe_by_data( cell ).
+
+    field-symbols <field> like line of lo_struc->components.
+    field-symbols <val> type any.
+    new-line.
+    loop at lo_struc->components assigning <field>.
+      write (10) <field>-name.
+    endloop.
+
+    loop at tab into cell.
+      new-line.
+      loop at lo_struc->components assigning <field>.
+        assign component <field>-name of structure cell to <val>.
+        write (10) <val> left-justified.
+      endloop.
+    endloop.
 
   endmethod.
 
