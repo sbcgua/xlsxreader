@@ -340,27 +340,34 @@ CLASS ZCL_XLSXREADER IMPLEMENTATION.
 
     data lo_style_part type ref to cl_xlsx_stylespart.
     data lo_xml_doc type ref to if_ixml_document.
+    data lo_node type ref to if_ixml_node.
     lo_style_part = mo_workbook->get_stylespart( ).
     lo_xml_doc    = zcl_xlsxreader_xml_utils=>parse_xmldoc( lo_style_part->get_data( ) ).
 
     data lt_num_formats type tt_num_formats.
-    zcl_xlsxreader_xml_utils=>children_to_table(
-      exporting
-        io_node = lo_xml_doc->find_from_name_ns(
-          name = 'numFmts'
-          uri  = c_openxml_namespace_uri )
-      importing
-        et_tab = lt_num_formats ).
+    lo_node = lo_xml_doc->find_from_name_ns(
+      name = 'numFmts'
+      uri  = c_openxml_namespace_uri ).
+    if lo_node is bound.
+      zcl_xlsxreader_xml_utils=>children_to_table(
+        exporting
+          io_node = lo_node
+        importing
+          et_tab = lt_num_formats ).
+    endif.
     add_default_num_formats( changing ct_num_formats = lt_num_formats ).
 
     data lt_cell_styles type tt_cell_styles.
-    zcl_xlsxreader_xml_utils=>children_to_table(
-      exporting
-        io_node = lo_xml_doc->find_from_name_ns(
-          name = 'cellXfs'
-          uri  = c_openxml_namespace_uri )
-      importing
-        et_tab = lt_cell_styles ).
+    lo_node = lo_xml_doc->find_from_name_ns(
+      name = 'cellXfs'
+      uri  = c_openxml_namespace_uri ).
+    if lo_node is bound.
+      zcl_xlsxreader_xml_utils=>children_to_table(
+        exporting
+          io_node = lo_node
+        importing
+          et_tab = lt_cell_styles ).
+    endif.
 
     data lt_num_formats_sorted type ts_num_formats.
     field-symbols <cell_style> like line of lt_cell_styles.
