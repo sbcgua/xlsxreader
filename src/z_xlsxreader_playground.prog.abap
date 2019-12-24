@@ -25,7 +25,8 @@ class lcl_app implementation.
     data tab type zcl_xlsxreader=>tt_cells.
     data str type string.
 
-    xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
+*    xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
+    xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\mcompiler-test\files\voucher_post_model.xlsx  ' ).
     xl     = zcl_xlsxreader=>load( xdata ).
     sheets = xl->get_sheet_names( ).
     loop at sheets into str.
@@ -40,15 +41,17 @@ class lcl_app implementation.
     data styles type zcl_xlsxreader=>tt_styles.
     styles = xl->get_styles( ).
 
-    tab = xl->get_sheet( '_contents' ).
-    write: / '_contents'.
-    print_sheet( tab ).
+    tab = xl->get_sheet( 'LINES' ).
 
-    tab = xl->get_sheet( 'TESTCASES' ).
-    tab = xl->get_sheet( 'SFLIGHT' ).
-    tab = xl->get_sheet( 'COMPLEX' ).
-    write: / 'COMPLEX'.
-    print_sheet( tab ).
+*    tab = xl->get_sheet( '_contents' ).
+*    write: / '_contents'.
+*    print_sheet( tab ).
+*
+*    tab = xl->get_sheet( 'TESTCASES' ).
+*    tab = xl->get_sheet( 'SFLIGHT' ).
+*    tab = xl->get_sheet( 'COMPLEX' ).
+*    write: / 'COMPLEX'.
+*    print_sheet( tab ).
 
 
 
