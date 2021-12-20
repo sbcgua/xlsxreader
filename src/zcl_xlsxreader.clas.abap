@@ -4,6 +4,10 @@ class ZCL_XLSXREADER definition
 
 public section.
 
+  constants origin type string value 'https://github.com/sbcgua/xlsxreader'. "#EC NOTEXT
+  constants origin_forked_from type string value 'https://github.com/mkysoft/xlsxreader'. "#EC NOTEXT
+  constants license type string value 'MIT'. "#EC NOTEXT
+
   interfaces ZIF_XLSXREADER_NODE_PROCESSOR .
 
   types:
