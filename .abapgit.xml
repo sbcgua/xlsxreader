@@ -7,14 +7,9 @@
    <FOLDER_LOGIC>FULL</FOLDER_LOGIC>
    <IGNORE>
     <item>/.gitignore</item>
-    <item>/LICENSE</item>
-    <item>/README.md</item>
-    <item>/package.json</item>
-    <item>/.travis.yml</item>
-    <item>/.gitlab-ci.yml</item>
-    <item>/abaplint.json</item>
-    <item>/azure-pipelines.yml</item>
     <item>/LICENSE.md</item>
+    <item>/LICENSE.orig.md</item>
+    <item>/README.md</item>
    </IGNORE>
   </DATA>
  </asx:values>
