@@ -1,4 +1,4 @@
-# XLSX Reader
+# Abap XLSX Reader
 
 Read Excel spreadsheet (OpenXml) from ABAP.
 
@@ -8,7 +8,7 @@ Install the package with [abapGit](https://github.com/abapGit/abapGit).
 
 ## Usage
 
-TBD
+TBD, but see `ZCL_XLSXREADER` test classes, method `load`.
 
 ## Credits
 

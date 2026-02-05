@@ -1,5 +1,5 @@
-interface ZIF_XLSXREADER_NODE_PROCESSOR
-  public .
+interface zif_xlsxreader_node_processor
+  public.
 
   methods process_node
     importing
