@@ -97,7 +97,7 @@ class ltcl_xlreader implementation.
       exp = lt_sheets_exp ).
 
     " Styles
-    data lt_styles_act type zcl_xlsxreader=>tt_styles.
+    data lt_styles_act type zif_xlsxreader=>tt_styles.
     data ls_style like line of lt_styles_act.
 
     lt_styles_act = lo_excel->get_styles( ).
@@ -111,8 +111,8 @@ class ltcl_xlreader implementation.
       exp = 'm/d/yy' ). " mm-dd-yy ?
 
     " Content
-    data lt_content_act type zcl_xlsxreader=>tt_cells.
-    data lt_content_exp type zcl_xlsxreader=>tt_cells.
+    data lt_content_act type zif_xlsxreader=>tt_cells.
+    data lt_content_exp type zif_xlsxreader=>tt_cells.
     field-symbols <i> like line of lt_content_exp.
 
     define _add_cell.

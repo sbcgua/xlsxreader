@@ -1,4 +1,4 @@
-REPORT Z_XLSXREADER_PLAYGROUND.
+report z_xlsxreader_playground.
 
 class lcl_app definition.
 
@@ -12,7 +12,7 @@ class lcl_app definition.
 
     class-methods print_sheet
       importing
-        tab type zcl_xlsxreader=>tt_cells.
+        tab type zif_xlsxreader=>tt_cells.
 endclass.
 
 class lcl_app implementation.
@@ -22,7 +22,7 @@ class lcl_app implementation.
     data xdata type xstring.
     data xl type ref to zcl_xlsxreader.
     data sheets type string_table.
-    data tab type zcl_xlsxreader=>tt_cells.
+    data tab type zif_xlsxreader=>tt_cells.
     data str type string.
 
 *    xdata  = zcl_w3mime_fs=>read_file_x( 'c:\tmp\Example.xlsx ' ).
@@ -38,7 +38,7 @@ class lcl_app implementation.
 *    create object lo_reader type zcl_excel_reader_2007.
 *    lo_excel = lo_reader->load( xdata ).
 
-    data styles type zcl_xlsxreader=>tt_styles.
+    data styles type zif_xlsxreader=>tt_styles.
     styles = xl->get_styles( ).
 
     tab = xl->get_sheet( 'LINES' ).

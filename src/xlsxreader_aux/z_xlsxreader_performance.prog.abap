@@ -1,4 +1,4 @@
-REPORT Z_XLSXREADER_PERFORMANCE.
+report z_xlsxreader_performance.
 
 include ztest_benchmark.
 
@@ -34,8 +34,8 @@ class lcl_app implementation.
 
     data xl type ref to zcl_xlsxreader.
     data sheets type string_table.
-    data tab type zcl_xlsxreader=>tt_cells.
-    data styles type zcl_xlsxreader=>tt_styles.
+    data tab type zif_xlsxreader=>tt_cells.
+    data styles type zif_xlsxreader=>tt_styles.
 
     xl     = zcl_xlsxreader=>load( mv_xdata ).
     styles = xl->get_styles( ).

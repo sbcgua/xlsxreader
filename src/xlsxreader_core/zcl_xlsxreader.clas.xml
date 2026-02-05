@@ -28,11 +28,6 @@
      <LANGU>E</LANGU>
      <DESCRIPT>Field of type DATS</DESCRIPT>
     </SEOCOMPOTX>
-    <SEOCOMPOTX>
-     <CMPNAME>GET_SHEET</CMPNAME>
-     <LANGU>E</LANGU>
-     <DESCRIPT>Get xlsx as sheet</DESCRIPT>
-    </SEOCOMPOTX>
    </DESCRIPTIONS>
   </asx:values>
  </asx:abap>

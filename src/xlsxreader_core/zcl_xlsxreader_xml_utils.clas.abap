@@ -1,7 +1,7 @@
 class ZCL_XLSXREADER_XML_UTILS definition
   public
   final
-  create public .
+  create public.
 
   public section.
 
@@ -22,7 +22,7 @@ class ZCL_XLSXREADER_XML_UTILS definition
       importing
         !iv_xml type xstring
       returning
-        value(ro_xmldoc) type ref to if_ixml_document .
+        value(ro_xmldoc) type ref to if_ixml_document.
 
     class-methods attributes_to_struc
       importing
@@ -38,7 +38,6 @@ class ZCL_XLSXREADER_XML_UTILS definition
         iv_no_attributes type abap_bool default abap_false
       exporting
         et_tab type standard table.
-
 
   protected section.
   private section.
